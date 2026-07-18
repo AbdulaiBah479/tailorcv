@@ -86,19 +86,18 @@ export async function tailorApplication(
   resumeText: string,
   jobDescription: string
 ): Promise<TailoredApplication> {
-  const interaction = await ai.interactions.create({
+  const response = await ai.models.generateContent({
     model: "gemini-3.5-flash",
-    input: `${SYSTEM_PROMPT}\n\nRESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`,
-    response_format: {
-      type: "text",
-      mime_type: "application/json",
-      schema: RESPONSE_SCHEMA,
+    contents: `${SYSTEM_PROMPT}\n\nRESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
     },
   });
 
-  if (!interaction.output_text) {
+  if (!response.text) {
     throw new Error("Model did not return a tailored application.");
   }
 
-  return JSON.parse(interaction.output_text) as TailoredApplication;
+  return JSON.parse(response.text) as TailoredApplication;
 }

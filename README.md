@@ -13,28 +13,29 @@ cp .env.example .env
 npm run dev
 ```
 
-Open http://localhost:3000. The free-trial flow (no email/credits) works with plain `npm run
-dev`. The paid-credit flow uses Netlify Blobs, which needs Netlify's local context — test it with
-`npx netlify dev` instead once you've run `npx netlify link` (or `npx netlify init`) against your
-Netlify site.
+Open http://localhost:3000. The free-trial flow (no email/credits) works with just
+`GEMINI_API_KEY` set. The paid-credit flow additionally needs `UPSTASH_REDIS_REST_URL` and
+`UPSTASH_REDIS_REST_TOKEN` (see setup below) to be set in `.env`.
 
 ## One-time setup before launch
 
 1. **Google Gemini** — create a free API key at aistudio.google.com, add it as `GEMINI_API_KEY`.
-2. **Gumroad** — create two products (e.g. "3 tailored applications" and "10 tailored
+2. **Upstash** — create a free account at upstash.com, create a Redis database, and copy the
+   REST URL and token from its dashboard into `UPSTASH_REDIS_REST_URL` and
+   `UPSTASH_REDIS_REST_TOKEN`.
+3. **Gumroad** — create two products (e.g. "3 tailored applications" and "10 tailored
    applications"). Note each product's permalink (the part after `/l/` in its URL) and your
    Gumroad seller ID (account settings). Fill these into `GUMROAD_PRODUCT_MAP` and
    `GUMROAD_SELLER_ID`. In each product's settings, add a "Ping" webhook pointing at
    `https://YOUR_DOMAIN/api/gumroad-webhook`.
-3. Update the two `gumroadUrl` values in `src/app/page.tsx` to your real product checkout URLs.
-4. **Netlify** — create a site from this repo (or `npx netlify init`), set the environment
-   variables above in Site settings → Environment variables, and deploy. `netlify.toml` already
-   points the build at `@netlify/plugin-nextjs`.
+4. Update the two `gumroadUrl` values in `src/app/page.tsx` to your real product checkout URLs.
+5. **Vercel** — import this repo at vercel.com (zero config needed for Next.js), set all the
+   environment variables above in Project Settings → Environment Variables, and deploy.
 
 ## Verifying the full flow after deploy
 
 1. Visit the live site, use the free trial once, confirm a second attempt asks for an email.
-2. Make one real (or Gumroad test-mode) purchase, confirm the webhook fires (check Netlify
+2. Make one real (or Gumroad test-mode) purchase, confirm the webhook fires (check Vercel's
    function logs for `gumroad-webhook`), and that entering that email in the app unlocks
    generations equal to the credits purchased.
 3. Confirm credits decrement correctly and block once exhausted.

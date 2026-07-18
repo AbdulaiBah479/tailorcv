@@ -1,38 +1,29 @@
-import { getStore } from "@netlify/blobs";
+import { Redis } from "@upstash/redis";
 
 export const FREE_TRIAL_COOKIE = "tcv_free_used";
 
-interface CreditRecord {
-  credits: number;
-}
+const redis = Redis.fromEnv();
 
-function creditsStore() {
-  return getStore("credits");
-}
-
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+function creditKey(email: string): string {
+  return `credits:${email.trim().toLowerCase()}`;
 }
 
 export async function getCredits(email: string): Promise<number> {
-  const store = creditsStore();
-  const record = await store.get(normalizeEmail(email), { type: "json" });
-  return (record as CreditRecord | null)?.credits ?? 0;
+  const value = await redis.get<number>(creditKey(email));
+  return value ?? 0;
 }
 
 export async function addCredits(email: string, amount: number): Promise<void> {
-  const store = creditsStore();
-  const key = normalizeEmail(email);
-  const current = await getCredits(key);
-  await store.setJSON(key, { credits: current + amount } satisfies CreditRecord);
+  await redis.incrby(creditKey(email), amount);
 }
 
-/** Returns true and decrements if the email had a credit available. */
+/** Returns true and decrements if the email had a credit available. Atomic — safe under concurrent requests. */
 export async function tryDecrementCredit(email: string): Promise<boolean> {
-  const store = creditsStore();
-  const key = normalizeEmail(email);
-  const current = await getCredits(key);
-  if (current <= 0) return false;
-  await store.setJSON(key, { credits: current - 1 } satisfies CreditRecord);
+  const key = creditKey(email);
+  const remaining = await redis.decr(key);
+  if (remaining < 0) {
+    await redis.incr(key); // revert the decrement, no credit was available
+    return false;
+  }
   return true;
 }

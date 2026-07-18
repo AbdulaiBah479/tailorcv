@@ -1,6 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const GEMINI_ENDPOINT =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent";
 
 export interface ChecklistItem {
   item: string;
@@ -86,18 +85,37 @@ export async function tailorApplication(
   resumeText: string,
   jobDescription: string
 ): Promise<TailoredApplication> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: `${SYSTEM_PROMPT}\n\nRESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
-    },
+  const res = await fetch(`${GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: `${SYSTEM_PROMPT}\n\nRESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: RESPONSE_SCHEMA,
+      },
+    }),
   });
 
-  if (!response.text) {
+  if (!res.ok) {
+    const errorBody = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${errorBody}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!text) {
     throw new Error("Model did not return a tailored application.");
   }
 
-  return JSON.parse(response.text) as TailoredApplication;
+  return JSON.parse(text) as TailoredApplication;
 }
